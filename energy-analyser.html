@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Usage JSON Analyzer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 {
+            color: #0056b3;
+        }
+        h2 {
+             border-bottom: 2px solid #eee;
+             padding-bottom: 10px;
+             margin-bottom: 20px;
+        }
+         h3 {
+             margin-bottom: 15px;
+         }
+        #upload-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+            text-align: center;
+        }
+        #results-section {
+            display: none; /* Hidden initially */
+            margin-top: 30px;
+        }
+        .summary-box, .chart-box, .table-box {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #fdfdfd;
+        }
+        .summary-box p {
+            margin: 8px 0;
+            font-size: 1.1em;
+        }
+        .summary-box strong {
+            color: #0056b3;
+            min-width: 180px;
+            display: inline-block;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #e9ecef;
+            font-weight: bold;
+            position: sticky; /* Keep headers visible when scrolling */
+            top: 0;
+            z-index: 1;
+        }
+        td:nth-child(n+2), th:nth-child(n+2) { /* Right-align numeric columns */
+             text-align: right;
+        }
+        .table-container { /* Added for scrollable tables if needed */
+            max-height: 400px; /* Example height */
+            overflow-y: auto;
+            position: relative;
+        }
+        #error-message {
+            color: #dc3545;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: none; /* Hidden initially */
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-left: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        input[type="file"] {
+            border: 1px solid #ccc;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        label {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        canvas {
+            max-width: 100%; /* Ensure charts are responsive */
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Energy Usage JSON Analyzer</h1>
+
+        <div id="upload-section">
+            <label for="jsonFile">Upload Energy Usage JSON File:</label>
+            <input type="file" id="jsonFile" accept=".json">
+            <button onclick="handleFileUpload()">Analyze File</button>
+        </div>
+
+        <div id="error-message"></div>
+
+        <div id="results-section">
+            <h2>Analysis Results</h2>
+
+            <div class="summary-box">
+                <h3>Overall Summary</h3>
+                <p><strong >Account Number:</strong> <span id="accountNumber"></span></p>
+                <p><strong >Customer Number:</strong> <span id="customerNumber"></span></p>
+                <p><strong >Time Period:</strong> <span id="timePeriod"></span></p>
+                <p><strong >Total KWH Consumed:</strong> <span id="totalKWH"></span> KWH</p>
+                <p><strong >Total Cost:</strong> $<span id="totalCost"></span></p> <p><strong >Average Daily KWH:</strong> <span id="avgDailyKWH"></span> KWH</p>
+                <p><strong >Average Daily Cost:</strong> $<span id="avgDailyCost"></span></p>
+                <p><strong >Average Cost per KWH:</strong> $<span id="avgCostPerKWH"></span> / KWH</p>
+            </div>
+
+             <div class="summary-box">
+                <h3>Daily Extremes</h3>
+                <p><strong >Highest KWH Day:</strong> <span id="highestKWHDay"></span> (<span id="highestKWHValue"></span> KWH)</p>
+                <p><strong >Lowest KWH Day:</strong> <span id="lowestKWHDay"></span> (<span id="lowestKWHValue"></span> KWH)</p>
+                <p><strong >Highest Cost Day:</strong> <span id="highestCostDay"></span> ($<span id="highestCostValue"></span>)</p>
+                <p><strong >Lowest Cost Day:</strong> <span id="lowestCostDay"></span> ($<span id="lowestCostValue"></span>)</p>
+            </div>
+
+            <div class="chart-box">
+                <h3>Daily Usage Trend (KWH)</h3>
+                <canvas id="dailyKWHChart"></canvas>
+            </div>
+
+            <div class="chart-box">
+                <h3>Daily Cost Trend ($)</h3>
+                <canvas id="dailyCostChart"></canvas>
+            </div>
+
+            <div class="table-box">
+                <h3>Daily Usage Details</h3>
+                <div class="table-container">
+                    <table id="dailyUsageTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>KWH</th>
+                                <th>Cost ($)</th>
+                                <th>Read Quality</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            </tbody>
+                    </table>
+                 </div>
+            </div>
+
+            <div id="hourly-analysis-section" style="display: none;">
+                <h2>Hourly Analysis</h2>
+                 <div class="summary-box">
+                    <h3>Hourly Extremes (Based on Average Usage)</h3>
+                    <p><strong >Peak Usage Hour(s):</strong> <span id="peakHour"></span> (Highest Average KWH)</p>
+                    <p><strong >Off-Peak Usage Hour(s):</strong> <span id="offPeakHour"></span> (Lowest Average KWH)</p>
+                 </div>
+
+                 <div class="chart-box">
+                    <h3>Hourly Usage Profile (Min/Avg/Max KWH)</h3>
+                    <canvas id="hourlyProfileChart"></canvas>
+                </div>
+
+                 <div class="table-box">
+                    <h3>Hourly Usage Statistics (KWH)</h3>
+                    <div class="table-container">
+                        <table id="hourlyStatsTable">
+                            <thead>
+                                <tr>
+                                    <th>Hour Period</th>
+                                    <th>Min KWH</th>
+                                    <th>Avg KWH</th>
+                                    <th>Max KWH</th>
+                                    <th>Data Points</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+
+    <script>
+        let dailyKWHChartInstance = null;
+        let dailyCostChartInstance = null;
+        let hourlyProfileChartInstance = null;
+
+        // --- Main Function ---
+        async function handleFileUpload() {
+            const fileInput = document.getElementById('jsonFile');
+            const errorDiv = document.getElementById('error-message');
+            const resultsDiv = document.getElementById('results-section');
+            const hourlySection = document.getElementById('hourly-analysis-section');
+
+            // Reset previous results and errors
+            errorDiv.style.display = 'none';
+            errorDiv.textContent = '';
+            resultsDiv.style.display = 'none';
+            hourlySection.style.display = 'none';
+            destroyCharts(); // Clear previous charts
+
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showError("Please select a JSON file first.");
+                return;
+            }
+
+            const file = fileInput.files[0];
+
+            if (file.type !== 'application/json') {
+                 showError("Please upload a valid JSON file (.json extension).");
+                 return;
+            }
+
+            try {
+                const fileContent = await readFileContent(file);
+                const jsonData = JSON.parse(fileContent);
+
+                // Basic Validation
+                if (!jsonData || !jsonData.data || (!jsonData.data.dailyUsage && !jsonData.data.hourlyUsage)) {
+                    throw new Error("JSON structure is not recognized. Expected 'data' object with 'dailyUsage' or 'hourlyUsage'.");
+                }
+
+                const analysisResults = analyzeData(jsonData.data);
+                displayResults(analysisResults);
+                createCharts(analysisResults);
+
+                resultsDiv.style.display = 'block'; // Show results section
+                if (analysisResults.hourlyDataExists) {
+                     hourlySection.style.display = 'block'; // Show hourly section if data processed
+                }
+
+
+            } catch (error) {
+                showError(`Error processing file: ${error.message}`);
+                console.error(error);
+            }
+        }
+
+        // --- Helper Functions ---
+
+        function readFileContent(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (event) => resolve(event.target.result);
+                reader.onerror = (error) => reject(error);
+                reader.readAsText(file);
+            });
+        }
+
+        function analyzeData(data) {
+             // *** NO CHANGES IN THIS FUNCTION from the previous version ***
+             // It already calculates min/max/avg in results.hourlyStats
+            const results = {
+                accountNumber: "N/A",
+                customerNumber: "N/A",
+                dailyUsage: [],
+                hourlyUsageRecords: [], // Store raw hourly records temporarily
+                startDate: null,
+                endDate: null,
+                totalKWH: 0,
+                totalCost: 0,
+                daysAnalyzed: 0,
+                hourlyDataExists: false,
+                hourlyStats: Array(24).fill(null).map(() => ({ // Initialize hourly stats structure
+                    minKwh: Infinity,
+                    maxKwh: -Infinity,
+                    sumKwh: 0,
+                    count: 0,
+                    avgKwh: 0
+                }))
+            };
+
+            // Process Daily Data
+            if (data.dailyUsage && data.dailyUsage.dailyUsage && data.dailyUsage.dailyUsage.length > 0) {
+                results.accountNumber = data.dailyUsage.accountNumber || results.accountNumber;
+                results.customerNumber = data.dailyUsage.customerNumber || results.customerNumber;
+
+                const dailyRecords = data.dailyUsage.dailyUsage;
+                results.daysAnalyzed = dailyRecords.length;
+
+                dailyRecords.forEach(day => {
+                    const date = day.startOfPeriod.substring(0, 10); // YYYY-MM-DD
+                    const kwh = day.usage ? parseFloat(day.usage.total || 0) : 0;
+                    const cost = day.usage ? parseFloat(day.usage.cost || 0) : 0;
+                    const quality = day.usage ? day.usage.readQuality : "N/A";
+
+                    results.dailyUsage.push({ date, kwh, cost, quality });
+                    results.totalKWH += kwh;
+                    results.totalCost += cost;
+
+                    // Track start and end dates
+                    const currentStartDate = new Date(day.startOfPeriod);
+                    if (!results.startDate || currentStartDate < results.startDate) {
+                        results.startDate = currentStartDate;
+                    }
+                     if (!results.endDate || currentStartDate > results.endDate) { // Use start date for simplicity
+                        results.endDate = currentStartDate;
+                    }
+                });
+
+                // Sort by date
+                results.dailyUsage.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                 // Update start/end from sorted array if needed (more reliable)
+                 if(results.dailyUsage.length > 0) {
+                     results.startDate = new Date(results.dailyUsage[0].date + 'T00:00:00');
+                     results.endDate = new Date(results.dailyUsage[results.dailyUsage.length - 1].date + 'T00:00:00');
+                 }
+            }
+
+            // Process Hourly Data (if present) - Stage 1: Collect records
+            if (data.hourlyUsage && data.hourlyUsage.hourlyUsageByDay && data.hourlyUsage.hourlyUsageByDay.length > 0) {
+                results.accountNumber = data.hourlyUsage.accountNumber || results.accountNumber;
+                results.customerNumber = data.hourlyUsage.customerNumber || results.customerNumber;
+                results.hourlyDataExists = true;
+
+                data.hourlyUsage.hourlyUsageByDay.forEach(dayData => {
+                    if (dayData.hourlyUsage && dayData.hourlyUsage.length > 0) {
+                        dayData.hourlyUsage.forEach(hourData => {
+                             if (hourData.usage && typeof hourData.usage.total !== 'undefined' && hourData.startOfPeriod) {
+                                try { // Add error handling for date parsing
+                                    const hour = new Date(hourData.startOfPeriod).getHours();
+                                    const kwh = parseFloat(hourData.usage.total);
+                                    if (!isNaN(hour) && !isNaN(kwh)) {
+                                        results.hourlyUsageRecords.push({ hour, kwh });
+                                    }
+                                } catch (dateError) {
+                                     console.warn("Skipping hourly record due to invalid date:", hourData.startOfPeriod, dateError);
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+
+             // Process Hourly Data - Stage 2: Calculate Stats iteratively
+            if (results.hourlyDataExists && results.hourlyUsageRecords.length > 0) {
+                 results.hourlyUsageRecords.forEach(record => {
+                     const hourIndex = record.hour;
+                     // Ensure hourIndex is valid (0-23)
+                     if (hourIndex >= 0 && hourIndex < 24) {
+                         const kwh = record.kwh;
+                         const stats = results.hourlyStats[hourIndex];
+
+                         stats.minKwh = Math.min(stats.minKwh, kwh);
+                         stats.maxKwh = Math.max(stats.maxKwh, kwh);
+                         stats.sumKwh += kwh;
+                         stats.count++;
+                     } else {
+                        console.warn("Skipping hourly record due to invalid hour index:", record.hour);
+                     }
+                 });
+
+
+                 // Finalize hourly averages and handle cases with no data for an hour
+                 results.hourlyStats.forEach(stats => {
+                    if (stats.count > 0) {
+                        stats.avgKwh = stats.sumKwh / stats.count;
+                    } else {
+                        // If count is 0, min/max were not updated from Infinity
+                        stats.minKwh = 0; // Or null/NaN if preferred
+                        stats.maxKwh = 0; // Or null/NaN if preferred
+                        stats.avgKwh = 0;
+                    }
+                 });
+
+                 // Calculate Peak/Off-Peak based on average
+                 const hourlyAverages = results.hourlyStats.map(s => s.avgKwh);
+                 // Filter out potential NaN values if any hour had 0 count and avg is NaN
+                 const validAverages = hourlyAverages.filter(avg => !isNaN(avg));
+
+                if (validAverages.length > 0) {
+                     const maxHourlyAvg = Math.max(...validAverages);
+                     const minHourlyAvg = Math.min(...validAverages);
+
+                     results.peakHours = hourlyAverages
+                        .map((avg, hour) => avg === maxHourlyAvg ? formatHourPeriod(hour) : null)
+                        .filter(h => h !== null);
+                     results.offPeakHours = hourlyAverages
+                        .map((avg, hour) => avg === minHourlyAvg ? formatHourPeriod(hour) : null)
+                        .filter(h => h !== null);
+                 } else {
+                      results.peakHours = ["N/A"];
+                      results.offPeakHours = ["N/A"];
+                 }
+
+
+             } else {
+                  results.peakHours = ["N/A"];
+                  results.offPeakHours = ["N/A"];
+             }
+
+
+            // Calculate Overall Averages and Extremes
+            if (results.daysAnalyzed > 0) {
+                results.avgDailyKWH = results.totalKWH / results.daysAnalyzed;
+                results.avgDailyCost = results.totalCost / results.daysAnalyzed;
+                results.avgCostPerKWH = results.totalKWH > 0 ? results.totalCost / results.totalKWH : 0;
+
+                // Daily Extremes
+                results.highestKWH = results.dailyUsage.reduce((max, day) => day.kwh > max.kwh ? day : max, results.dailyUsage[0]);
+                results.lowestKWH = results.dailyUsage.reduce((min, day) => day.kwh < min.kwh ? day : min, results.dailyUsage[0]);
+                results.highestCost = results.dailyUsage.reduce((max, day) => day.cost > max.cost ? day : max, results.dailyUsage[0]);
+                results.lowestCost = results.dailyUsage.reduce((min, day) => day.cost < min.cost ? day : min, results.dailyUsage[0]);
+
+            } else {
+                 results.avgDailyKWH = 0;
+                 results.avgDailyCost = 0;
+                 results.avgCostPerKWH = 0;
+                 // Set extremes to null or default if no daily data
+                 results.highestKWH = { date: 'N/A', kwh: 0 };
+                 results.lowestKWH = { date: 'N/A', kwh: 0 };
+                 results.highestCost = { date: 'N/A', cost: 0 };
+                 results.lowestCost = { date: 'N/A', cost: 0 };
+            }
+
+            return results;
+        }
+
+        // Formats hour index (0-23) into a period string like "00:00 - 01:00"
+         function formatHourPeriod(hour) {
+            const startHour = hour.toString().padStart(2, '0');
+            const endHour = ((hour + 1) % 24).toString().padStart(2, '0');
+            return `${startHour}:00-${endHour}:00`; // Shortened for chart labels if needed
+         }
+
+
+        function displayResults(results) {
+            // *** NO CHANGES IN THIS FUNCTION from the previous version ***
+            // --- Display Overall and Daily Summary ---
+            document.getElementById('accountNumber').textContent = results.accountNumber;
+            document.getElementById('customerNumber').textContent = results.customerNumber;
+
+             // Adjusting currency symbol based on location (Australia)
+            const currencySymbol = '$'; // Assuming AUD for Australia
+            const costOptions = { style: 'currency', currency: 'AUD' };
+
+            const options = { year: 'numeric', month: 'short', day: 'numeric' };
+            const startDateStr = results.startDate ? results.startDate.toLocaleDateString(undefined, options) : 'N/A';
+            const endDateStr = results.endDate ? results.endDate.toLocaleDateString(undefined, options) : 'N/A';
+            document.getElementById('timePeriod').textContent = `${startDateStr} to ${endDateStr}`;
+
+            document.getElementById('totalKWH').textContent = results.totalKWH.toFixed(3);
+            document.getElementById('totalCost').textContent = currencySymbol + results.totalCost.toFixed(2);
+            document.getElementById('avgDailyKWH').textContent = results.avgDailyKWH.toFixed(3);
+            document.getElementById('avgDailyCost').textContent = currencySymbol + results.avgDailyCost.toFixed(2);
+            document.getElementById('avgCostPerKWH').textContent = currencySymbol + results.avgCostPerKWH.toFixed(4);
+
+            // Daily extremes
+            document.getElementById('highestKWHDay').textContent = results.highestKWH.date;
+            document.getElementById('highestKWHValue').textContent = results.highestKWH.kwh.toFixed(3);
+            document.getElementById('lowestKWHDay').textContent = results.lowestKWH.date;
+            document.getElementById('lowestKWHValue').textContent = results.lowestKWH.kwh.toFixed(3);
+            document.getElementById('highestCostDay').textContent = results.highestCost.date;
+            document.getElementById('highestCostValue').textContent = currencySymbol + results.highestCost.cost.toFixed(2);
+            document.getElementById('lowestCostDay').textContent = results.lowestCost.date;
+            document.getElementById('lowestCostValue').textContent = currencySymbol + results.lowestCost.cost.toFixed(2);
+
+
+            // --- Populate Daily Usage Table ---
+            const dailyTableBody = document.getElementById('dailyUsageTable').querySelector('tbody');
+            dailyTableBody.innerHTML = ''; // Clear previous data
+            results.dailyUsage.forEach(day => {
+                const row = dailyTableBody.insertRow();
+                row.insertCell(0).textContent = day.date;
+                row.insertCell(1).textContent = day.kwh.toFixed(3);
+                row.insertCell(2).textContent = currencySymbol + day.cost.toFixed(2);
+                row.insertCell(3).textContent = day.quality;
+            });
+
+             // --- Display Hourly Analysis ---
+             if (results.hourlyDataExists) {
+                 document.getElementById('peakHour').textContent = results.peakHours.join(', ');
+                 document.getElementById('offPeakHour').textContent = results.offPeakHours.join(', ');
+
+                 // Populate Hourly Stats Table
+                 const hourlyTableBody = document.getElementById('hourlyStatsTable').querySelector('tbody');
+                 hourlyTableBody.innerHTML = ''; // Clear previous data
+
+                 results.hourlyStats.forEach((stats, hour) => {
+                     const row = hourlyTableBody.insertRow();
+                     row.insertCell(0).textContent = formatHourPeriod(hour); // Format hour like 00:00 - 01:00
+                     // Display N/A if count is 0, otherwise format number
+                     row.insertCell(1).textContent = stats.count > 0 ? stats.minKwh.toFixed(3) : 'N/A';
+                     row.insertCell(2).textContent = stats.count > 0 ? stats.avgKwh.toFixed(3) : 'N/A';
+                     row.insertCell(3).textContent = stats.count > 0 ? stats.maxKwh.toFixed(3) : 'N/A';
+                     row.insertCell(4).textContent = stats.count;
+                 });
+             }
+        }
+
+
+        function createCharts(results) {
+             // *** Daily Charts remain unchanged ***
+            // --- Daily KWH Chart ---
+            const dailyKWHCtx = document.getElementById('dailyKWHChart').getContext('2d');
+            dailyKWHChartInstance = new Chart(dailyKWHCtx, {
+                type: 'line',
+                data: {
+                    labels: results.dailyUsage.map(day => day.date),
+                    datasets: [{
+                        label: 'Daily KWH Usage',
+                        data: results.dailyUsage.map(day => day.kwh),
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        tension: 0.1,
+                        fill: true,
+                    }]
+                },
+                options: {
+                    scales: { y: { beginAtZero: true, title: { display: true, text: 'KWH'} } },
+                    responsive: true,
+                    maintainAspectRatio: true
+                }
+            });
+
+            // --- Daily Cost Chart ---
+             const currencySymbol = '$'; // Assuming AUD for Australia
+            const dailyCostCtx = document.getElementById('dailyCostChart').getContext('2d');
+            dailyCostChartInstance = new Chart(dailyCostCtx, {
+                type: 'line',
+                 data: {
+                    labels: results.dailyUsage.map(day => day.date),
+                    datasets: [{
+                        label: `Daily Cost (${currencySymbol})`, // Updated label
+                        data: results.dailyUsage.map(day => day.cost),
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        tension: 0.1,
+                         fill: true,
+                    }]
+                },
+                 options: {
+                    scales: { y: { beginAtZero: true, title: { display: true, text: currencySymbol} } }, // Updated axis label
+                     responsive: true,
+                     maintainAspectRatio: true
+                }
+            });
+
+             // --- *** MODIFIED: Average Hourly Profile Chart with Min/Max Lines *** ---
+            if (results.hourlyDataExists) {
+                const hourlyProfileCtx = document.getElementById('hourlyProfileChart').getContext('2d');
+                hourlyProfileChartInstance = new Chart(hourlyProfileCtx, {
+                    // Keep type 'bar' for average, lines will overlay
+                    type: 'bar',
+                    data: {
+                        labels: results.hourlyStats.map((_, index) => formatHourPeriod(index)),
+                        datasets: [
+                             {
+                                label: 'Average KWH',
+                                data: results.hourlyStats.map(stats => stats.count > 0 ? stats.avgKwh : null), // Use null for hours with no data
+                                backgroundColor: 'rgba(54, 162, 235, 0.6)', // Light blue for bars
+                                borderColor: 'rgb(54, 162, 235)',
+                                borderWidth: 1,
+                                order: 3 // Draw bars last (behind lines)
+                            },
+                            {
+                                label: 'Min KWH',
+                                data: results.hourlyStats.map(stats => stats.count > 0 ? stats.minKwh : null), // Use null for hours with no data
+                                type: 'line', // Specify line type for this dataset
+                                borderColor: 'rgb(0, 0, 139)', // Dark blue
+                                backgroundColor: 'rgba(0, 0, 139, 0.1)',
+                                fill: false,
+                                tension: 0.1,
+                                pointRadius: 2,
+                                pointHoverRadius: 4,
+                                order: 1 // Draw min line first
+                            },
+                             {
+                                label: 'Max KWH',
+                                data: results.hourlyStats.map(stats => stats.count > 0 ? stats.maxKwh : null), // Use null for hours with no data
+                                type: 'line', // Specify line type for this dataset
+                                borderColor: 'rgb(255, 99, 132)', // Red
+                                backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                                fill: false, // Optional: fill between min/max? Could be noisy. Let's keep false.
+                                tension: 0.1,
+                                pointRadius: 2,
+                                pointHoverRadius: 4,
+                                order: 2 // Draw max line second
+                            }
+                        ]
+                    },
+                    options: {
+                        scales: {
+                             x: { title: { display: true, text: 'Hour Period'} },
+                             y: {
+                                beginAtZero: true,
+                                title: { display: true, text: 'KWH Usage'} // Updated Y-axis title
+                             }
+                        },
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                             tooltip: {
+                                 mode: 'index', // Show tooltips for all datasets at the same index
+                                 intersect: false,
+                             }
+                        },
+                        interaction: { // Improves tooltip usability with multiple datasets
+                            mode: 'index',
+                            intersect: false,
+                        }
+                    }
+                });
+            }
+        }
+
+
+        function destroyCharts() {
+            if (dailyKWHChartInstance) { dailyKWHChartInstance.destroy(); dailyKWHChartInstance = null; }
+            if (dailyCostChartInstance) { dailyCostChartInstance.destroy(); dailyCostChartInstance = null; }
+            if (hourlyProfileChartInstance) { hourlyProfileChartInstance.destroy(); hourlyProfileChartInstance = null; }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+             document.getElementById('results-section').style.display = 'none'; // Hide results on error
+        }
+
+    </script>
+</body>
+</html>

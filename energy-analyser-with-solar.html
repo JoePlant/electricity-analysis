@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Usage & Solar Analyzer (AU)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #0056b3;
+            --secondary-color: #007bff;
+            --light-gray: #f8f9fa;
+            --medium-gray: #e9ecef;
+            --dark-gray: #6c757d;
+            --border-color: #dee2e6;
+            --text-color: #212529;
+            --white-color: #fff;
+            --danger-color: #dc3545;
+            --danger-bg: #f8d7da;
+            --danger-border: #f5c6cb;
+            --border-radius: 6px;
+            --box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            background-color: #f0f2f5; /* Slightly different background */
+            color: var(--text-color);
+            font-size: 16px;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 20px auto;
+            background: var(--white-color);
+            padding: 30px 40px; /* Increased padding */
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+        }
+        h1, h2, h3 {
+            color: var(--primary-color);
+            margin-top: 1.5em;
+            margin-bottom: 1em;
+        }
+        h1 {
+            text-align: center;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 20px;
+            margin-top: 0;
+            font-size: 2em;
+        }
+        h2 {
+             border-bottom: 1px solid #eee;
+             padding-bottom: 10px;
+             font-size: 1.6em;
+             margin-top: 2em;
+        }
+         h3 {
+             margin-bottom: 20px;
+             font-size: 1.3em;
+             color: var(--secondary-color);
+         }
+        fieldset {
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-bottom: 20px;
+            background-color: var(--light-gray);
+        }
+         legend {
+            font-weight: 600;
+            font-size: 1.1em;
+            color: var(--primary-color);
+            padding: 0 10px;
+            margin-left: 10px; /* Align with padding */
+         }
+        #upload-controls { /* Container for file input */
+             display: flex;
+             align-items: center;
+             justify-content: center;
+             gap: 15px; /* Space between elements */
+        }
+         #solar-selection-controls { /* Container for radio buttons */
+             display: flex;
+             align-items: center;
+             justify-content: center;
+             gap: 15px;
+             margin-top: 10px;
+         }
+         #solar-selection label {
+             margin: 0 5px 0 2px;
+             font-weight: normal;
+             cursor: pointer;
+             vertical-align: middle;
+         }
+         #solar-selection input[type="radio"]{
+            cursor: pointer;
+            vertical-align: middle;
+            margin-right: 2px;
+         }
+          #analyzeButtonContainer {
+             margin-top: 15px;
+             text-align: center;
+          }
+
+        /* Tab Navigation */
+        #tab-nav {
+            display: flex;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 25px;
+            margin-top: 10px;
+        }
+        .tab-button {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background-color: transparent;
+            border-bottom: 3px solid transparent; /* For active state */
+            margin-bottom: -2px; /* Overlap border-bottom */
+            font-size: 1.05em;
+            color: var(--dark-gray);
+            transition: all 0.2s ease-in-out;
+        }
+        .tab-button:hover {
+            background-color: var(--medium-gray);
+            color: var(--primary-color);
+        }
+        .tab-button.active {
+            border-bottom: 3px solid var(--secondary-color);
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        /* Tab Panels */
+        .tab-panel {
+            display: none; /* Hidden by default */
+            animation: fadeIn 0.5s ease-in-out; /* Simple fade-in */
+        }
+        .tab-panel.active {
+            display: block; /* Shown when active */
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        #results-section { display: none; margin-top: 0; } /* Hide initially, no top margin */
+
+        /* Content Boxes */
+        .summary-box, .chart-box, .table-box {
+            margin-bottom: 30px;
+            padding: 25px; /* Increased padding */
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            background-color: var(--white-color);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05); /* Subtle shadow */
+        }
+        .summary-box p {
+            margin: 10px 0;
+            font-size: 1.05em;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            border-bottom: 1px dotted #eee;
+            padding-bottom: 10px;
+        }
+         .summary-box p:last-child { border-bottom: none; }
+        .summary-box strong { color: #333; margin-right: 10px; font-weight: 600; }
+         .summary-box span:not(.parenthetical) { color: var(--primary-color); font-weight: bold; text-align: right; }
+         .summary-box .parenthetical { color: var(--dark-gray); font-size: 0.95em; margin-left: 5px; text-align: right; }
+
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid var(--border-color); padding: 10px 12px; text-align: left; vertical-align: middle; }
+        thead th { background-color: var(--medium-gray); font-weight: 600; position: sticky; top: 0; z-index: 1; font-size: 0.95em; }
+        td:not(:first-child):not(.heatmap-cell), th:not(:first-child):not(.heatmap-header):not(.heatmap-day-header) { text-align: right; }
+        td:first-child, th:first-child { text-align: left !important; }
+        .table-container { max-height: 450px; overflow-y: auto; position: relative; border: 1px solid var(--border-color); border-radius: 4px; }
+
+        /* Heatmap Styles */
+         #heatmapContainer { width: 100%; overflow-x: auto; margin-top: 15px; border: 1px solid #ccc; }
+         #heatmapTable { border-collapse: collapse; width: auto; white-space: nowrap; }
+         #heatmapTable th, #heatmapTable td { border: 1px solid #eee; text-align: center; vertical-align: middle;}
+         #heatmapTable th.heatmap-day-header { background-color: var(--medium-gray); font-weight: bold; font-size: 0.8em; padding: 4px 3px; min-width: 25px; position: sticky; top: 0; z-index: 2; }
+         #heatmapTable th.heatmap-hour-header { background-color: var(--light-gray); font-weight: normal; font-size: 0.8em; padding: 3px 6px; min-width: 30px; position: sticky; left: 0; z-index: 1; }
+         #heatmapTable td.heatmap-cell { width: 22px; height: 22px; padding: 0; }
+         #heatmapLegend { margin-top: 15px; font-size: 0.9em; text-align: center; padding-bottom: 10px; }
+         .legend-color-box { display: inline-block; width: 18px; height: 18px; margin: 0 4px; border: 1px solid #ccc; vertical-align: middle; }
+
+         /* Error Message */
+        #error-message { color: var(--danger-color); background-color: var(--danger-bg); border: 1px solid var(--danger-border); padding: 15px; border-radius: var(--border-radius); margin: 20px 0; display: none; font-weight: bold; text-align: center; }
+
+        /* Controls */
+        button { background-color: var(--secondary-color); color: white; padding: 10px 25px; border: none; border-radius: var(--border-radius); cursor: pointer; font-size: 1.05em; transition: background-color 0.2s ease, box-shadow 0.2s ease; }
+        button:hover { background-color: var(--primary-color); box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
+        input[type="file"] { border: 1px solid var(--border-color); padding: 8px 12px; border-radius: var(--border-radius); vertical-align: middle; background-color: var(--white-color); }
+        label { font-weight: 600; margin-right: 10px; vertical-align: middle; color: #333; }
+
+        /* Charts */
+        canvas { max-width: 100%; margin-top: 15px; }
+
+        /* Hide solar sections initially */
+        #solar-analysis-box, #energy-flow-table-box, #energy-flow-chart-box { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Energy Usage & Solar Analyzer (AU)</h1>
+
+        <div id="input-area">
+            <fieldset id="upload-section">
+                <legend>1. Upload Data</legend>
+                 <div id="upload-controls">
+                    <label for="jsonFile">Select Energy Usage JSON File:</label>
+                    <input type="file" id="jsonFile" accept=".json">
+                 </div>
+            </fieldset>
+
+             <fieldset id="solar-selection">
+                 <legend>2. Select Solar Scenario (Brisbane, 13.2kWp System)</legend>
+                 <div id="solar-selection-controls">
+                    <input type="radio" id="solarNone" name="solarProfile" value="none" checked>
+                    <label for="solarNone">No Solar</label>
+                    <input type="radio" id="solarJan" name="solarProfile" value="jan">
+                    <label for="solarJan">January Profile (Typical Sunny)</label>
+                    <input type="radio" id="solarJun" name="solarProfile" value="jun">
+                    <label for="solarJun">June Profile (Typical Sunny)</label>
+                 </div>
+                 <div id="analyzeButtonContainer">
+                    <button onclick="handleFileUpload()">Analyze</button>
+                 </div>
+             </fieldset>
+        </div>
+
+        <div id="error-message"></div>
+
+        <div id="tab-nav" style="display: none;"> <button id="tab-btn-summary" class="tab-button active" onclick="showTab('summary', this)">Summary</button>
+          <button id="tab-btn-daily" class="tab-button" onclick="showTab('daily', this)">Daily Analysis</button>
+          <button id="tab-btn-hourly" class="tab-button" onclick="showTab('hourly', this)">Hourly Analysis</button>
+          <button id="tab-btn-heatmap" class="tab-button" onclick="showTab('heatmap', this)">Heatmap</button>
+        </div>
+
+        <div id="results-section">
+
+            <div id="summary-panel" class="tab-panel active">
+                <div class="summary-box">
+                    <h3>Base Consumption Summary</h3>
+                    <p><strong >Account Number:</strong> <span id="accountNumber">N/A</span></p>
+                    <p><strong >Customer Number:</strong> <span id="customerNumber">N/A</span></p>
+                    <p><strong >Time Period:</strong> <span id="timePeriod">N/A</span></p>
+                    <p><strong >Total Consumption:</strong> <span id="totalConsumption">N/A KWH</span></p>
+                    <p><strong >Total Base Cost:</strong> <span id="totalBaseCost">N/A</span></p>
+                    <p><strong >Average Daily Consumption:</strong> <span id="avgDailyConsumption">N/A KWH</span></p>
+                    <p><strong >Average Daily Base Cost:</strong> <span id="avgDailyBaseCost">N/A</span></p>
+                    <p><strong >Average Base Cost per KWH:</strong> <span id="avgBaseCostPerKWH">N/A / KWH</span></p>
+                    <p><strong >Highest Consumption Day:</strong> <span class="parenthetical"><span id="highestConsumptionDay">N/A</span> (<span id="highestConsumptionValue">N/A KWH</span>)</span></p>
+                    <p><strong >Lowest Consumption Day:</strong> <span class="parenthetical"><span id="lowestConsumptionDay">N/A</span> (<span id="lowestConsumptionValue">N/A KWH</span>)</span></p>
+                    <p><strong >Highest Base Cost Day:</strong> <span class="parenthetical"><span id="highestBaseCostDay">N/A</span> (<span id="highestBaseCostValue">N/A</span>)</span></p>
+                    <p><strong >Lowest Base Cost Day:</strong> <span class="parenthetical"><span id="lowestBaseCostDay">N/A</span> (<span id="lowestBaseCostValue">N/A</span>)</span></p>
+                </div>
+
+                <div id="solar-analysis-box" class="summary-box"> <h3>Solar Analysis Summary (<span id="solarProfileUsed"></span> Profile)</h3>
+                    <p><strong >Total Solar Generation:</strong> <span id="totalSolarGen">N/A KWH</span></p>
+                    <p><strong >Total Grid Import:</strong> <span id="totalGridImport">N/A KWH</span></p>
+                    <p><strong >Total Solar Export:</strong> <span id="totalSolarExport">N/A KWH</span></p>
+                    <p><strong >Total Self-Consumption:</strong> <span id="totalSelfConsumption">N/A KWH</span></p>
+                    <p><strong >Self-Consumption Rate:</strong> <span id="selfConsumptionRate">N/A %</span></p>
+                    <p><strong >Solar Contribution Rate:</strong> <span id="solarContributionRate">N/A %</span></p>
+                </div>
+            </div>
+
+            <div id="daily-panel" class="tab-panel">
+                 <h2>Daily Analysis</h2>
+                 <div class="chart-box">
+                    <h3>Daily Consumption Trend (KWH)</h3>
+                    <canvas id="dailyConsumptionChart"></canvas>
+                 </div>
+                 <div class="chart-box">
+                    <h3 id="dailyCostChartTitle">Daily Base Cost Trend</h3>
+                    <canvas id="dailyCostChart"></canvas>
+                 </div>
+                 <div class="table-box">
+                    <h3>Daily Consumption Details</h3>
+                    <div class="table-container">
+                        <table id="dailyUsageTable">
+                            <thead><tr><th>Date</th><th>Consumption (KWH)</th><th id="dailyUsageTableCostHeader">Base Cost</th><th>Read Quality</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                     </div>
+                 </div>
+            </div>
+
+            <div id="hourly-panel" class="tab-panel">
+                 <h2>Hourly Analysis Details</h2>
+                 <div id="hourly-analysis-content"> <div class="summary-box">
+                        <h3>Hourly Consumption Extremes (Based on Average)</h3>
+                        <p><strong >Peak Consumption Hour(s):</strong> <span id="peakHour">N/A</span> <span class="parenthetical">(Highest Average KWH)</span></p>
+                        <p><strong >Off-Peak Consumption Hour(s):</strong> <span id="offPeakHour">N/A</span> <span class="parenthetical">(Lowest Average KWH)</span></p>
+                     </div>
+
+                     <div id="energy-flow-chart-box" class="chart-box">
+                        <h3 id="energyFlowChartTitle">Hourly Energy Flow (Average)</h3>
+                        <canvas id="energyFlowChart"></canvas>
+                     </div>
+
+                     <div id="energy-flow-table-box" class="table-box">
+                         <h3>Hourly Energy Flow Details (Average per Hour)</h3>
+                         <div class="table-container">
+                             <table id="energyFlowTable">
+                                 <thead><tr><th>Hour</th><th>Avg Cons.</th><th>Avg Solar Gen</th><th>Avg Self-Cons.</th><th>Avg Grid Imp.</th><th>Avg Solar Exp.</th><th>Data Points</th></tr></thead>
+                                 <tbody></tbody>
+                             </table>
+                         </div>
+                     </div>
+
+                     <div class="chart-box">
+                        <h3>Hourly Consumption Profile & Solar Generation (KWH)</h3>
+                        <canvas id="hourlyProfileChart"></canvas>
+                     </div>
+
+                     <div class="table-box">
+                        <h3>Hourly Consumption Statistics (KWH)</h3>
+                        <div class="table-container"> <table id="hourlyStatsTable"><thead><tr><th>Hour Period</th><th>Min KWH</th><th>Avg KWH</th><th>Max KWH</th><th>Data Points</th></tr></thead><tbody></tbody></table> </div>
+                     </div>
+                 </div>
+                 <div id="no-hourly-data-message" style="display: none; text-align: center; padding: 20px; font-style: italic;">No hourly data found in the uploaded file.</div>
+            </div>
+
+            <div id="heatmap-panel" class="tab-panel">
+                <h2>Heatmap</h2>
+                <div id="heatmap-content"> <div id="heatmapBox" class="table-box">
+                         <h3>Hourly Consumption Heatmap (KWH)</h3>
+                         <div id="heatmapContainer"></div>
+                         <div id="heatmapLegend"></div>
+                     </div>
+                 </div>
+                  <div id="no-heatmap-data-message" style="display: none; text-align: center; padding: 20px; font-style: italic;">No hourly data found for heatmap.</div>
+            </div>
+
+        </div> </div> <script>
+        let dailyKWHChartInstance = null;
+        let dailyCostChartInstance = null;
+        let hourlyProfileChartInstance = null;
+        let energyFlowChartInstance = null;
+
+         // --- Estimated Solar Profiles ---
+         const solarProfiles = {
+             jan: [0,0,0,0,0, 0.69, 2.74, 4.80, 6.86, 8.23, 8.92, 8.92, 8.23, 6.86, 5.49, 3.43, 1.37, 0,0,0,0,0,0,0],
+             jun: [0,0,0,0,0,0, 1.00, 3.01, 5.02, 6.53, 7.53, 8.03, 7.53, 5.52, 3.51, 2.01, 0.50, 0,0,0,0,0,0,0]
+         };
+
+        // --- Tab Switching Logic ---
+        function showTab(tabId, clickedButton) {
+            console.log("Showing tab:", tabId); // Debug log
+            // Hide all panels
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.style.display = 'none';
+            });
+             // Deactivate all buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+
+             // Show the selected panel
+             const selectedPanel = document.getElementById(tabId + '-panel');
+             if (selectedPanel) {
+                selectedPanel.style.display = 'block';
+                // Trigger resize event for charts in the now visible panel
+                window.dispatchEvent(new Event('resize'));
+             } else {
+                 console.warn(`Tab panel with ID '${tabId + '-panel'}' not found.`);
+             }
+
+             // Activate the clicked button
+             if (clickedButton) {
+                clickedButton.classList.add('active');
+             } else { // Fallback if button ref not passed (e.g., initial load)
+                 const activeBtn = document.getElementById('tab-btn-' + tabId);
+                 if(activeBtn) activeBtn.classList.add('active');
+             }
+        }
+
+        // --- Main Function ---
+        async function handleFileUpload() {
+            console.log("handleFileUpload started");
+            const fileInput = document.getElementById('jsonFile');
+            const errorDiv = document.getElementById('error-message');
+            const resultsDiv = document.getElementById('results-section');
+            const tabNav = document.getElementById('tab-nav');
+            // Get references to conditional content wrappers
+            const hourlyAnalysisContent = document.getElementById('hourly-analysis-content');
+            const noHourlyDataMessage = document.getElementById('no-hourly-data-message');
+            const heatmapContent = document.getElementById('heatmap-content');
+            const noHeatmapDataMessage = document.getElementById('no-heatmap-data-message');
+            // Get references to solar display elements
+            const solarAnalysisBox = document.getElementById('solar-analysis-box');
+            const energyFlowTableBox = document.getElementById('energy-flow-table-box');
+            const energyFlowChartBox = document.getElementById('energy-flow-chart-box');
+
+            const selectedSolarProfile = document.querySelector('input[name="solarProfile"]:checked')?.value ?? 'none';
+            console.log("Selected Solar Profile:", selectedSolarProfile);
+
+            // Reset UI more thoroughly
+            errorDiv.style.display = 'none'; errorDiv.textContent = '';
+            resultsDiv.style.display = 'none'; // Hide entire results section
+            tabNav.style.display = 'none'; // Hide tabs
+             // Ensure individual solar sections are hidden
+             if(solarAnalysisBox) solarAnalysisBox.style.display = 'none';
+             if(energyFlowTableBox) energyFlowTableBox.style.display = 'none';
+             if(energyFlowChartBox) energyFlowChartBox.style.display = 'none';
+             // Hide conditional content messages
+             if(noHourlyDataMessage) noHourlyDataMessage.style.display = 'none';
+             if(noHeatmapDataMessage) noHeatmapDataMessage.style.display = 'none';
+            destroyCharts();
+             const heatmapContainer = document.getElementById('heatmapContainer'); if(heatmapContainer) heatmapContainer.innerHTML = '';
+             const heatmapLegend = document.getElementById('heatmapLegend'); if(heatmapLegend) heatmapLegend.innerHTML = '';
+
+            if (!fileInput.files || fileInput.files.length === 0) { showError("Please select a JSON file first."); return; }
+            const file = fileInput.files[0];
+            if (file.type !== 'application/json') { showError("Please upload a valid JSON file (.json extension)."); return; }
+
+            try {
+                console.log("Reading file content...");
+                const fileContent = await readFileContent(file);
+                console.log("Parsing JSON...");
+                const jsonData = JSON.parse(fileContent);
+                if (!jsonData?.data || (!jsonData.data.dailyUsage && !jsonData.data.hourlyUsage)) { throw new Error("JSON structure not recognized."); }
+                console.log("JSON Parsed. Starting analysis...");
+
+                const analysisResults = analyzeData(jsonData.data, selectedSolarProfile);
+                console.log("Analysis complete. Results:", analysisResults);
+
+                console.log("Displaying results...");
+                displayResults(analysisResults); // Populates content within panels
+
+                console.log("Creating charts (will render when tab shown)...");
+                createCharts(analysisResults); // Creates chart instances
+                console.log("Charts instances created.");
+
+                // Show results section and tab navigation
+                resultsDiv.style.display = 'block';
+                tabNav.style.display = 'flex'; // Show tabs
+
+                 // Handle conditional display of hourly/heatmap content vs messages
+                 if (analysisResults.hourlyDataExists) {
+                     if(hourlyAnalysisContent) hourlyAnalysisContent.style.display = 'block';
+                     if(noHourlyDataMessage) noHourlyDataMessage.style.display = 'none';
+                     if(heatmapContent) heatmapContent.style.display = 'block';
+                     if(noHeatmapDataMessage) noHeatmapDataMessage.style.display = 'none';
+
+                     // Conditionally show solar elements within the appropriate panels
+                     if (selectedSolarProfile !== 'none') {
+                         console.log("Solar profile selected, showing solar sections.");
+                         if(solarAnalysisBox) solarAnalysisBox.style.display = 'block'; // In summary panel
+                         if(energyFlowTableBox) energyFlowTableBox.style.display = 'block'; // In hourly panel
+                         if(energyFlowChartBox) energyFlowChartBox.style.display = 'block'; // In hourly panel
+                     } else {
+                          // Ensure solar sections are hidden if 'none' selected
+                          if(solarAnalysisBox) solarAnalysisBox.style.display = 'none';
+                          if(energyFlowTableBox) energyFlowTableBox.style.display = 'none';
+                          if(energyFlowChartBox) energyFlowChartBox.style.display = 'none';
+                     }
+                } else {
+                     console.log("No hourly data found, hiding hourly content.");
+                     if(hourlyAnalysisContent) hourlyAnalysisContent.style.display = 'none';
+                     if(noHourlyDataMessage) noHourlyDataMessage.style.display = 'block';
+                     if(heatmapContent) heatmapContent.style.display = 'none';
+                     if(noHeatmapDataMessage) noHeatmapDataMessage.style.display = 'block';
+                     // Hide solar sections as well if no hourly data
+                     if(solarAnalysisBox) solarAnalysisBox.style.display = 'none';
+                     if(energyFlowTableBox) energyFlowTableBox.style.display = 'none';
+                     if(energyFlowChartBox) energyFlowChartBox.style.display = 'none';
+                }
+
+
+                // Activate the default tab (Summary)
+                showTab('summary', document.getElementById('tab-btn-summary'));
+
+                 console.log("handleFileUpload finished.");
+            } catch (error) {
+                 console.error("Error caught in handleFileUpload:", error);
+                 resultsDiv.style.display = 'none'; // Hide results on error
+                 tabNav.style.display = 'none'; // Hide tabs on error
+                 showError(`Error processing file: ${error.message}. Check console for details.`);
+            }
+        }
+
+        // --- Helper Functions ---
+        function readFileContent(file) { /* ... unchanged ... */
+             return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = (event) => resolve(event.target.result); reader.onerror = (error) => reject(error); reader.readAsText(file); });
+        }
+
+        // --- Analysis Function ---
+        function analyzeData(data, selectedSolarProfile) { /* ... unchanged ... */
+            const results = { accountNumber: data?.dailyUsage?.accountNumber || data?.hourlyUsage?.accountNumber || "N/A", customerNumber: data?.dailyUsage?.customerNumber || data?.hourlyUsage?.customerNumber || "N/A", dailyUsage: [], hourlyRecords: [], startDate: null, endDate: null, totalConsumption: 0, totalCost: 0, daysAnalyzed: 0, hourlyDataExists: false, hourlyStatsConsumption: Array(24).fill(null).map(() => ({ minKwh: Infinity, maxKwh: -Infinity, sumKwh: 0, count: 0, avgKwh: NaN })), hourlyStatsFlow: Array(24).fill(null).map(() => ({ sumConsumption: 0, sumSolarGen: 0, sumSelfConsumption: 0, sumGridImport: 0, sumSolarExport: 0, count: 0, avgConsumption: 0, avgSolarGen: 0, avgSelfConsumption: 0, avgGridImport: 0, avgSolarExport: 0 })), heatmapGridData: {}, heatmapDays: [], minHeatmapKwh: Infinity, maxHeatmapKwh: -Infinity, totalSolarGeneration: 0, totalGridImport: 0, totalSolarExport: 0, totalSelfConsumption: 0, selectedSolarProfile: selectedSolarProfile, peakHours: ["N/A"], offPeakHours: ["N/A"], highestKWH: { date: 'N/A', kwh: 0 }, lowestKWH: { date: 'N/A', kwh: Infinity }, highestCost: { date: 'N/A', cost: 0 }, lowestCost: { date: 'N/A', cost: Infinity } }; const uniqueHeatmapDays = new Set(); const solarGenerationProfile = solarProfiles[selectedSolarProfile] || null;
+            if (data?.dailyUsage?.dailyUsage?.length > 0) { results.daysAnalyzed = data.dailyUsage.dailyUsage.length; data.dailyUsage.dailyUsage.forEach(day => { if (!day?.startOfPeriod) return; const date = day.startOfPeriod.substring(0, 10); const kwh = parseFloat(day.usage?.total || 0); const cost = parseFloat(day.usage?.cost || 0); const quality = day.usage?.readQuality || "N/A"; if (isNaN(kwh) || isNaN(cost)) { return; } results.dailyUsage.push({ date, kwh, cost, quality }); results.totalConsumption += kwh; results.totalCost += cost; try { const currentStartDate = new Date(day.startOfPeriod); if (!results.startDate || currentStartDate < results.startDate) results.startDate = currentStartDate; if (!results.endDate || currentStartDate > results.endDate) results.endDate = currentStartDate; } catch (e) { } if (kwh > results.highestKWH.kwh) results.highestKWH = { date, kwh }; if (kwh < results.lowestKWH.kwh) results.lowestKWH = { date, kwh }; if (cost > results.highestCost.cost) results.highestCost = { date, cost }; if (cost < results.lowestCost.cost) results.lowestCost = { date, cost }; }); results.dailyUsage.sort((a, b) => new Date(a.date) - new Date(b.date)); if(results.dailyUsage.length > 0) { try { results.startDate = new Date(results.dailyUsage[0].date + 'T00:00:00Z'); results.endDate = new Date(results.dailyUsage[results.dailyUsage.length - 1].date + 'T00:00:00Z'); } catch(e){} } }
+            if (results.lowestKWH.kwh === Infinity) results.lowestKWH = { date: 'N/A', kwh: 0 }; if (results.lowestCost.cost === Infinity) results.lowestCost = { date: 'N/A', cost: 0 };
+            if (data?.hourlyUsage?.hourlyUsageByDay?.length > 0) { results.hourlyDataExists = true; data.hourlyUsage.hourlyUsageByDay.forEach(dayData => { const dayString = dayData.day; if (!dayString || !dayData.hourlyUsage) return; results.heatmapGridData[dayString] = {}; uniqueHeatmapDays.add(dayString); dayData.hourlyUsage.forEach(hourData => { if (!hourData?.usage || typeof hourData.usage.total === 'undefined' || !hourData.startOfPeriod) return; try { const dateTime = new Date(hourData.startOfPeriod); const hour = dateTime.getHours(); const consumptionKwh = parseFloat(hourData.usage.total); if (isNaN(hour) || hour < 0 || hour > 23 || isNaN(consumptionKwh)) return; const solarGenerationKwh = solarGenerationProfile?.[hour] ?? 0; const selfConsumptionKwh = Math.min(consumptionKwh, solarGenerationKwh); const gridImportKwh = Math.max(0, consumptionKwh - solarGenerationKwh); const solarExportKwh = Math.max(0, solarGenerationKwh - consumptionKwh); results.hourlyRecords.push({ dateString: dayString, hour, consumptionKwh, solarGenerationKwh, gridImportKwh, solarExportKwh, selfConsumptionKwh }); results.heatmapGridData[dayString][hour] = consumptionKwh; results.minHeatmapKwh = Math.min(results.minHeatmapKwh, consumptionKwh); results.maxHeatmapKwh = Math.max(results.maxHeatmapKwh, consumptionKwh); results.totalSolarGeneration += solarGenerationKwh; results.totalGridImport += gridImportKwh; results.totalSolarExport += solarExportKwh; results.totalSelfConsumption += selfConsumptionKwh; } catch (dateError) {} }); }); results.heatmapDays = Array.from(uniqueHeatmapDays).sort(); }
+            if (results.hourlyDataExists && results.hourlyRecords.length > 0) { results.hourlyRecords.forEach(record => { const hourIndex = record.hour; if (hourIndex < 0 || hourIndex > 23) return; const consStats = results.hourlyStatsConsumption[hourIndex]; const consKwh = record.consumptionKwh; consStats.minKwh = Math.min(consStats.minKwh, consKwh); consStats.maxKwh = Math.max(consStats.maxKwh, consKwh); consStats.sumKwh += consKwh; consStats.count++; const flowStats = results.hourlyStatsFlow[hourIndex]; flowStats.sumConsumption += record.consumptionKwh; flowStats.sumSolarGen += record.solarGenerationKwh; flowStats.sumSelfConsumption += record.selfConsumptionKwh; flowStats.sumGridImport += record.gridImportKwh; flowStats.sumSolarExport += record.solarExportKwh; flowStats.count++; }); results.hourlyStatsConsumption.forEach(stats => { if (stats.count > 0) stats.avgKwh = stats.sumKwh / stats.count; else { stats.minKwh = NaN; stats.maxKwh = NaN; stats.avgKwh = NaN; } if (stats.minKwh === Infinity) stats.minKwh = stats.count > 0 ? stats.sumKwh / stats.count : NaN; if (stats.maxKwh === -Infinity) stats.maxKwh = stats.count > 0 ? stats.sumKwh / stats.count : NaN; }); results.hourlyStatsFlow.forEach(stats => { if (stats.count > 0) { const count = stats.count; stats.avgConsumption = stats.sumConsumption / count; stats.avgSolarGen = stats.sumSolarGen / count; stats.avgSelfConsumption = stats.sumSelfConsumption / count; stats.avgGridImport = stats.sumGridImport / count; stats.avgSolarExport = stats.sumSolarExport / count; } }); const hourlyAvgConsumption = results.hourlyStatsConsumption.map(s => s.avgKwh); const validAvgConsumption = hourlyAvgConsumption.filter(avg => !isNaN(avg)); if (validAvgConsumption.length > 0) { const maxAvgCons = Math.max(...validAvgConsumption); const minAvgCons = Math.min(...validAvgConsumption); results.peakHours = hourlyAvgConsumption.map((avg, hour) => avg === maxAvgCons ? formatHourPeriod(hour) : null).filter(h => h !== null); results.offPeakHours = hourlyAvgConsumption.map((avg, hour) => avg === minAvgCons ? formatHourPeriod(hour) : null).filter(h => h !== null); } else { results.peakHours = ["N/A"]; results.offPeakHours = ["N/A"]; } }
+             else { results.minHeatmapKwh = 0; results.maxHeatmapKwh = 0; results.peakHours = ["N/A"]; results.offPeakHours = ["N/A"]; }
+            if (results.minHeatmapKwh === Infinity) results.minHeatmapKwh = 0; if (results.maxHeatmapKwh === -Infinity) results.maxHeatmapKwh = results.minHeatmapKwh;
+            results.selfConsumptionRate = results.totalSolarGeneration > 0 ? (results.totalSelfConsumption / results.totalSolarGeneration) * 100 : 0; results.solarContributionRate = results.totalConsumption > 0 ? (results.totalSelfConsumption / results.totalConsumption) * 100 : 0;
+            if (results.daysAnalyzed > 0) { results.avgDailyKWH = results.totalConsumption / results.daysAnalyzed; results.avgDailyCost = results.totalCost / results.daysAnalyzed; results.avgCostPerKWH = results.totalConsumption > 0 ? results.totalCost / results.totalConsumption : 0; } else { results.avgDailyKWH = 0; results.avgDailyCost = 0; results.avgCostPerKWH = 0; }
+            console.log("Analysis function finished."); return results;
+        }
+
+        // Format hour index (0-23) into a period string
+         function formatHourPeriod(hour, style = 'long') { /* ... unchanged ... */ const startHour = hour.toString().padStart(2, '0'); if (style === 'short') return startHour; const endHour = ((hour + 1) % 24).toString().padStart(2, '0'); return `${startHour}:00-${endHour}:00`; }
+
+        // --- Display Functions ---
+        function displayResults(results) { /* ... Updated formatting logic from previous response ... */
+            console.log("displayResults started.");
+             const locale = 'en-AU'; const currencySymbol = '$'; const costOptions = { style: 'currency', currency: 'AUD', minimumFractionDigits: 2, maximumFractionDigits: 2 }; const dateOptions = { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' }; const numFormat3 = { minimumFractionDigits: 3, maximumFractionDigits: 3 }; const percentFormat = { minimumFractionDigits: 1, maximumFractionDigits: 1 };
+             function setText(id, value) { try { const element = document.getElementById(id); if (element) { element.textContent = value; } else { console.warn(`Element with ID '${id}' not found.`); } } catch (e) { console.error(`Error setting text for ID '${id}':`, e); } }
+             function setHtml(id, value) { try { const element = document.getElementById(id); if (element) { element.innerHTML= value; } else { console.warn(`Element with ID '${id}' not found.`); } } catch (e) { console.error(`Error setting html for ID '${id}':`, e); } }
+             console.log("Displaying Base Summary..."); setText('accountNumber', results.accountNumber); setText('customerNumber', results.customerNumber); const startDateStr = results.startDate ? results.startDate.toLocaleDateString(locale, dateOptions) : 'N/A'; const endDateStr = results.endDate ? results.endDate.toLocaleDateString(locale, dateOptions) : 'N/A'; setText('timePeriod', `${startDateStr} to ${endDateStr}`); setHtml('totalConsumption', results.totalConsumption.toLocaleString(locale, numFormat3) + ' KWH'); setText('totalBaseCost', results.totalCost.toLocaleString(locale, costOptions)); setHtml('avgDailyConsumption', results.avgDailyKWH.toLocaleString(locale, numFormat3) + ' KWH'); setText('avgDailyBaseCost', results.avgDailyCost.toLocaleString(locale, costOptions)); setHtml('avgBaseCostPerKWH', currencySymbol + results.avgCostPerKWH.toLocaleString(locale, {minimumFractionDigits: 4, maximumFractionDigits: 4}) + ' / KWH');
+             setText('highestConsumptionDay', results.highestKWH.date); setHtml('highestConsumptionValue', (results.highestKWH?.kwh?.toLocaleString(locale, numFormat3) ?? 'N/A') + ' KWH'); setText('lowestConsumptionDay', results.lowestKWH.date); setHtml('lowestConsumptionValue', (results.lowestKWH?.kwh?.toLocaleString(locale, numFormat3) ?? 'N/A') + ' KWH'); setText('highestBaseCostDay', results.highestCost.date); setText('highestBaseCostValue', results.highestCost?.cost?.toLocaleString(locale, costOptions) ?? 'N/A'); setText('lowestBaseCostDay', results.lowestCost.date); setText('lowestBaseCostValue', results.lowestCost?.cost?.toLocaleString(locale, costOptions) ?? 'N/A');
+             console.log("Finished Base Summary.");
+             if (results.selectedSolarProfile !== 'none' && results.hourlyDataExists) { console.log("Displaying Solar Summary..."); setText('solarProfileUsed', results.selectedSolarProfile === 'jan' ? 'January' : 'June'); setHtml('totalSolarGen', results.totalSolarGeneration.toLocaleString(locale, numFormat3) + ' KWH'); setHtml('totalGridImport', results.totalGridImport.toLocaleString(locale, numFormat3) + ' KWH'); setHtml('totalSolarExport', results.totalSolarExport.toLocaleString(locale, numFormat3) + ' KWH'); setHtml('totalSelfConsumption', results.totalSelfConsumption.toLocaleString(locale, numFormat3) + ' KWH'); setHtml('selfConsumptionRate', results.selfConsumptionRate.toLocaleString(locale, percentFormat) + ' %'); setHtml('solarContributionRate', results.solarContributionRate.toLocaleString(locale, percentFormat) + ' %'); console.log("Finished Solar Summary."); }
+             console.log("Updating Headers/Titles..."); setText('dailyUsageTableCostHeader', `Base Cost (${currencySymbol})`); setText('dailyCostChartTitle', `Daily Base Cost Trend (${currencySymbol})`); console.log("Finished Headers/Titles.");
+             console.log("Populating Daily Table..."); const dailyTableBody = document.getElementById('dailyUsageTable')?.querySelector('tbody'); if (dailyTableBody) { dailyTableBody.innerHTML = ''; results.dailyUsage.forEach(day => { const row = dailyTableBody.insertRow(); row.insertCell(0).textContent = day.date; row.insertCell(1).textContent = day.kwh.toLocaleString(locale, numFormat3); row.insertCell(2).textContent = day.cost.toLocaleString(locale, costOptions); row.insertCell(3).textContent = day.quality; }); } else { console.warn("Daily usage table body not found."); } console.log("Finished Daily Table.");
+             if (results.hourlyDataExists) { console.log("Displaying Hourly Details..."); setText('peakHour', results.peakHours.join(', ')); setText('offPeakHour', results.offPeakHours.join(', ')); const hourlyStatsTableBody = document.getElementById('hourlyStatsTable')?.querySelector('tbody'); if (hourlyStatsTableBody) { hourlyStatsTableBody.innerHTML = ''; results.hourlyStatsConsumption.forEach((stats, hour) => { const row = hourlyStatsTableBody.insertRow(); row.insertCell(0).textContent = formatHourPeriod(hour); row.insertCell(1).textContent = !isNaN(stats.minKwh) ? stats.minKwh.toLocaleString(locale, numFormat3) : 'N/A'; row.insertCell(2).textContent = !isNaN(stats.avgKwh) ? stats.avgKwh.toLocaleString(locale, numFormat3) : 'N/A'; row.insertCell(3).textContent = !isNaN(stats.maxKwh) ? stats.maxKwh.toLocaleString(locale, numFormat3) : 'N/A'; row.insertCell(4).textContent = stats.count.toLocaleString(locale); }); } else { console.warn("Hourly consumption stats table body not found."); } console.log("Creating Heatmap..."); createHeatmapTable(results); console.log("Finished Heatmap."); if (results.selectedSolarProfile !== 'none') { console.log("Populating Energy Flow Table..."); const energyFlowTableBody = document.getElementById('energyFlowTable')?.querySelector('tbody'); if (energyFlowTableBody) { energyFlowTableBody.innerHTML = ''; results.hourlyStatsFlow.forEach((stats, hour) => { const row = energyFlowTableBody.insertRow(); row.insertCell(0).textContent = formatHourPeriod(hour); row.insertCell(1).textContent = stats.avgConsumption.toLocaleString(locale, numFormat3); row.insertCell(2).textContent = stats.avgSolarGen.toLocaleString(locale, numFormat3); row.insertCell(3).textContent = stats.avgSelfConsumption.toLocaleString(locale, numFormat3); row.insertCell(4).textContent = stats.avgGridImport.toLocaleString(locale, numFormat3); row.insertCell(5).textContent = stats.avgSolarExport.toLocaleString(locale, numFormat3); row.insertCell(6).textContent = stats.count.toLocaleString(locale); }); } else { console.warn("Energy flow table body not found."); } console.log("Finished Energy Flow Table."); } console.log("Finished Hourly Details Display."); }
+             else { console.log("No hourly data - clearing hourly display elements."); const hsBody = document.getElementById('hourlyStatsTable')?.querySelector('tbody'); if (hsBody) hsBody.innerHTML = ''; const efBody = document.getElementById('energyFlowTable')?.querySelector('tbody'); if (efBody) efBody.innerHTML = ''; const hmCont = document.getElementById('heatmapContainer'); if (hmCont) hmCont.innerHTML = ''; const hmLeg = document.getElementById('heatmapLegend'); if (hmLeg) hmLeg.innerHTML = ''; }
+             console.log("displayResults function finished.");
+        }
+
+        // --- Heatmap Generation ---
+         function getHeatmapColor(value, min, max) { /* ... unchanged ... */ if (isNaN(value) || value === null || max <= min) return '#efefef'; const normalized = Math.max(0, Math.min(1, (value - min) / (max - min))); const hue = (1 - normalized) * 120; return `hsl(${hue.toFixed(1)}, 90%, 50%)`; }
+        function createHeatmapTable(results) { /* ... unchanged ... */ console.log("createHeatmapTable started."); const container = document.getElementById('heatmapContainer'); const legendContainer = document.getElementById('heatmapLegend'); if (!container || !legendContainer) { console.error("Heatmap container or legend not found"); return; } container.innerHTML = ''; legendContainer.innerHTML = ''; if (!results.hourlyDataExists || results.heatmapDays.length === 0) { container.textContent = "No hourly data available for heatmap."; return; } const table = document.createElement('table'); table.id = 'heatmapTable'; const thead = table.createTHead(); const tbody = table.createTBody(); const headerRow = thead.insertRow(); const cornerCell = document.createElement('th'); cornerCell.className = 'heatmap-hour-header'; cornerCell.style.zIndex = 3; cornerCell.style.left = 0; cornerCell.style.top = 0; headerRow.appendChild(cornerCell); results.heatmapDays.forEach(day => { const th = document.createElement('th'); th.className = 'heatmap-day-header'; const dateObj = new Date(day + 'T00:00:00Z'); th.textContent = dateObj.getUTCDate().toString(); headerRow.appendChild(th); }); for (let hour = 0; hour < 24; hour++) { const row = tbody.insertRow(); const hourTh = document.createElement('th'); hourTh.className = 'heatmap-hour-header'; hourTh.textContent = formatHourPeriod(hour, 'short'); row.appendChild(hourTh); results.heatmapDays.forEach(day => { const cell = row.insertCell(); cell.className = 'heatmap-cell'; const kwhData = results.heatmapGridData[day]?.[hour]; if (typeof kwhData !== 'undefined' && !isNaN(kwhData)) { const color = getHeatmapColor(kwhData, results.minHeatmapKwh, results.maxHeatmapKwh); cell.style.backgroundColor = color; cell.title = `${day} ${formatHourPeriod(hour)}: ${kwhData.toFixed(3)} KWH`; } else { cell.style.backgroundColor = '#efefef'; cell.title = `${day} ${formatHourPeriod(hour)}: No data`; } }); } container.appendChild(table); const locale = 'en-AU'; const numFormat2 = { minimumFractionDigits: 2, maximumFractionDigits: 2 }; const minColor = getHeatmapColor(results.minHeatmapKwh, results.minHeatmapKwh, results.maxHeatmapKwh); const midValue = (results.minHeatmapKwh + results.maxHeatmapKwh) / 2; const midColor = getHeatmapColor(midValue, results.minHeatmapKwh, results.maxHeatmapKwh); const maxColor = getHeatmapColor(results.maxHeatmapKwh, results.minHeatmapKwh, results.maxHeatmapKwh); const q1Value = results.minHeatmapKwh + (results.maxHeatmapKwh - results.minHeatmapKwh) * 0.25; const q3Value = results.minHeatmapKwh + (results.maxHeatmapKwh - results.minHeatmapKwh) * 0.75; legendContainer.innerHTML = ` Low (${results.minHeatmapKwh.toLocaleString(locale, numFormat2)} KWH) <span class="legend-color-box" style="background-color: ${minColor};"></span> <span class="legend-color-box" style="background-color: ${getHeatmapColor(q1Value, results.minHeatmapKwh, results.maxHeatmapKwh)};"></span> <span class="legend-color-box" style="background-color: ${midColor};"></span> <span class="legend-color-box" style="background-color: ${getHeatmapColor(q3Value, results.minHeatmapKwh, results.maxHeatmapKwh)};"></span> <span class="legend-color-box" style="background-color: ${maxColor};"></span> High (${results.maxHeatmapKwh.toLocaleString(locale, numFormat2)} KWH) `; console.log("createHeatmapTable finished."); }
+
+
+        // --- Charting Functions ---
+        function createCharts(results) {
+             console.log("createCharts started.");
+             const locale = 'en-AU'; const currencySymbol = '$';
+
+            destroyCharts(); // Destroy existing charts first
+
+            // --- Daily Consumption Chart ---
+            const dailyKWHCtx = document.getElementById('dailyConsumptionChart')?.getContext('2d');
+            if (dailyKWHCtx && results.dailyUsage.length > 0) { try { dailyKWHChartInstance = new Chart(dailyKWHCtx, { type: 'line', data: { labels: results.dailyUsage.map(day => day.date), datasets: [{ label: 'Daily Consumption (KWH)', data: results.dailyUsage.map(day => day.kwh), borderColor: 'rgb(75, 192, 192)', backgroundColor: 'rgba(75, 192, 192, 0.2)', tension: 0.1, fill: true, }] }, options: { scales: { y: { beginAtZero: true, title: { display: true, text: 'KWH'} } }, responsive: true, maintainAspectRatio: true } }); } catch(e) { console.error("Error creating Daily Consumption Chart:", e); } } else { console.warn("Daily consumption chart canvas not found or no data."); }
+
+            // --- Daily Base Cost Chart ---
+            const dailyCostCtx = document.getElementById('dailyCostChart')?.getContext('2d');
+            if (dailyCostCtx && results.dailyUsage.length > 0) { try { dailyCostChartInstance = new Chart(dailyCostCtx, { type: 'line', data: { labels: results.dailyUsage.map(day => day.date), datasets: [{ label: `Daily Base Cost (${currencySymbol})`, data: results.dailyUsage.map(day => day.cost), borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.2)', tension: 0.1, fill: true, }] }, options: { scales: { y: { beginAtZero: true, title: { display: true, text: currencySymbol} } }, responsive: true, maintainAspectRatio: true } }); } catch(e) { console.error("Error creating Daily Cost Chart:", e); } } else { console.warn("Daily cost chart canvas not found or no data."); }
+
+             // --- Hourly Charts ---
+            if (results.hourlyDataExists) {
+                console.log("Creating hourly charts...");
+                // --- Hourly Consumption Profile (Min/Avg/Max + Solar Gen) ---
+                const hourlyProfileCtx = document.getElementById('hourlyProfileChart')?.getContext('2d');
+                if (hourlyProfileCtx) {
+                    try {
+                         // Base datasets for consumption profile
+                         let hourlyProfileDatasets = [
+                            { label: 'Avg Consumption', data: results.hourlyStatsConsumption.map(stats => !isNaN(stats.avgKwh) ? stats.avgKwh : null), backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgb(54, 162, 235)', borderWidth: 1, order: 3 }, // Type 'bar' is default unless specified otherwise
+                            { label: 'Min Consumption', data: results.hourlyStatsConsumption.map(stats => !isNaN(stats.minKwh) ? stats.minKwh : null), type: 'line', borderColor: 'rgb(0, 0, 139)', backgroundColor: 'rgba(0, 0, 139, 0.1)', fill: false, tension: 0.1, pointRadius: 2, pointHoverRadius: 4, order: 1 },
+                            { label: 'Max Consumption', data: results.hourlyStatsConsumption.map(stats => !isNaN(stats.maxKwh) ? stats.maxKwh : null), type: 'line', borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.1)', fill: false, tension: 0.1, pointRadius: 2, pointHoverRadius: 4, order: 2 }
+                         ];
+
+                         // *** Conditionally add Solar Generation dataset ***
+                         if (results.selectedSolarProfile !== 'none') {
+                             hourlyProfileDatasets.push({
+                                label: 'Avg Solar Generation',
+                                data: results.hourlyStatsFlow.map(stats => stats.avgSolarGen), // Use flow stats for solar gen avg
+                                type: 'line',
+                                borderColor: 'rgb(255, 205, 86)', // Yellow
+                                backgroundColor: 'rgba(255, 205, 86, 0.1)', // Semi-transparent fill
+                                fill: false, // Set to true or '+1' etc. if you want area fill
+                                tension: 0.2,
+                                pointRadius: 2,
+                                pointHoverRadius: 4,
+                                order: 4 // Draw this line last, or adjust order as needed
+                             });
+                         }
+
+                         hourlyProfileChartInstance = new Chart(hourlyProfileCtx, {
+                            type: 'bar', // Base type for the average consumption bars
+                            data: {
+                                labels: results.hourlyStatsConsumption.map((_, index) => formatHourPeriod(index)),
+                                datasets: hourlyProfileDatasets
+                            },
+                            options: {
+                                scales: { x: { title: { display: true, text: 'Hour Period'} }, y: { beginAtZero: true, title: { display: true, text: 'Consumption / Generation (KWH)'} } }, // Updated Y-axis label
+                                responsive: true, maintainAspectRatio: true, // Keep default aspect ratio
+                                plugins: { tooltip: { mode: 'index', intersect: false, } },
+                                interaction: { mode: 'index', intersect: false, }
+                             }
+                        });
+                         console.log("Hourly consumption profile chart created/updated.");
+                     } catch(e) { console.error("Error creating Hourly Consumption Profile Chart:", e); }
+                } else { console.warn("Hourly profile chart canvas not found."); }
+
+                 // --- Hourly Energy Flow Chart (Corrected: Non-Stacked Y Axis) ---
+                 if (results.selectedSolarProfile !== 'none') {
+                     console.log("Creating energy flow chart...");
+                     const energyFlowCtx = document.getElementById('energyFlowChart')?.getContext('2d');
+                     if (energyFlowCtx) {
+                         try {
+                            energyFlowChartInstance = new Chart(energyFlowCtx, {
+                                type: 'bar',
+                                data: {
+                                    labels: results.hourlyStatsFlow.map((_, index) => formatHourPeriod(index)),
+                                    datasets: [
+                                        { label: 'Self-Consumption', data: results.hourlyStatsFlow.map(stats => stats.avgSelfConsumption), backgroundColor: 'rgba(75, 192, 192, 0.7)', stack: 'ConsumptionStack', order: 3 },
+                                        { label: 'Grid Import', data: results.hourlyStatsFlow.map(stats => stats.avgGridImport), backgroundColor: 'rgba(255, 99, 132, 0.7)', stack: 'ConsumptionStack', order: 4 },
+                                        { label: 'Solar Generation', data: results.hourlyStatsFlow.map(stats => stats.avgSolarGen), type: 'line', borderColor: 'rgb(255, 205, 86)', backgroundColor: 'rgba(255, 205, 86, 0.2)', tension: 0.2, fill: false, pointRadius: 2, order: 1 },
+                                        { label: 'Solar Export', data: results.hourlyStatsFlow.map(stats => stats.avgSolarExport), type: 'line', borderColor: 'rgb(153, 102, 255)', backgroundColor: 'rgba(153, 102, 255, 0.2)', tension: 0.2, fill: false, pointRadius: 2, borderDash: [5, 5], order: 2 }
+                                    ]
+                                },
+                                options: {
+                                    scales: {
+                                        x: { title: { display: true, text: 'Hour Period' } }, // Removed stacked: true
+                                        y: { beginAtZero: true, title: { display: true, text: 'Average KWH' }, stacked: false } // Explicitly false
+                                    },
+                                    responsive: true, maintainAspectRatio: true, // Keep default aspect ratio
+                                    plugins: { tooltip: { mode: 'index', intersect: false }, title: { display: true, text: 'Average Hourly Energy Flow (KWH)'} },
+                                    interaction: { mode: 'index', intersect: false }
+                                }
+                            });
+                            console.log("Energy flow chart created.");
+                        } catch(e) { console.error("Error creating Energy Flow Chart:", e); }
+                    } else { console.warn("Energy flow chart canvas not found."); }
+                 }
+            }
+            console.log("createCharts function finished.");
+        }
+
+
+        function destroyCharts() { /* ... unchanged ... */ if (dailyKWHChartInstance) { dailyKWHChartInstance.destroy(); dailyKWHChartInstance = null; } if (dailyCostChartInstance) { dailyCostChartInstance.destroy(); dailyCostChartInstance = null; } if (hourlyProfileChartInstance) { hourlyProfileChartInstance.destroy(); hourlyProfileChartInstance = null; } if (energyFlowChartInstance) { energyFlowChartInstance.destroy(); energyFlowChartInstance = null; } }
+        function showError(message) { /* ... unchanged ... */ const errorDiv = document.getElementById('error-message'); if (errorDiv) { errorDiv.textContent = message; errorDiv.style.display = 'block'; } const resultsDiv = document.getElementById('results-section'); if (resultsDiv) resultsDiv.style.display = 'none'; const tabNav = document.getElementById('tab-nav'); if(tabNav) tabNav.style.display = 'none';}
+
+    </script>
+</body>
+</html>
