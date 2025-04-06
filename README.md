@@ -1,5 +1,7 @@
 # Electricity Analysis
 
+[![Netlify Status](https://api.netlify.com/api/v1/badges/d8cfc348-a797-4441-962b-6046a39a6262/deploy-status)](https://app.netlify.com/sites/electricity-analysis/deploys)
+
 Energy Analysis of my power bills - using data from the Alinta webapp
 
 The purpose of this app was to provide analysis of my power usage.
