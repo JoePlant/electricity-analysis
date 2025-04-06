@@ -67,6 +67,7 @@
                 border: 1px solid #ddd;
                 padding: 10px;
                 text-align: left;
+                width:200px;
             }
             th {
                 background-color: #e9ecef;
@@ -82,6 +83,11 @@
                 max-height: 400px; /* Example height */
                 overflow-y: auto;
                 position: relative;
+            }
+            .img-screenshot {
+                width: 400px;
+                height: auto;
+                /* margin-top: 15px; */
             }
             #error-message {
                 color: #dc3545;
@@ -123,11 +129,33 @@
 </head>
 <body>
     <h1>Electricity Analysis</h1>
-    <p>Energy Analysis of my power bills - using data from the Alinta webapp.</p>
+    <p>Energy Analysis of my power bills - using data from the <a href='https://www.alintaenergy.com.au/'>Alinta Energy</a> website.</p>
 
     <ul>
-        <li><a href='energy-analyser.html'>First Version</a></li>
-        <li><a href='energy-analyser-heatmap.html'>Next Version - with Heatmap</a></li>
-        <li><a href='energy-analyser-with-solar.html'>Final Version - with Solar Info</a></li>
+        <li><a href='version-1.html'>First Version</a></li>
+        <li><a href='version-2.html'>Second Version - with Hourly Minimum and Maximum</a></li>
+        <li><a href='version-3.html'>Third Version - with Heatmap</a></li>
+        <li><a href='version-4.html'>Final Version - with Solar Information for Brisbane</a></li>
     </ul>
+    <hr/>
+    <h2>First Version</h2>
+    <p>The first version allowed for a json file to be uploaded and it would calculate and plot the daily and average hourly values.</p>
+    <p><img class='img-screenshot' src="images/version-1-daily.jpg"/></p>
+    <p><img class='img-screenshot' src="images/version-1-hourly.jpg"/></p>
+    <hr/>
+    <h2>Second Version</h2>
+    <p>The second version calculated and plotted the hourly minimum and maximum.</p>
+    <p><img class='img-screenshot'  src="images/version-2-hourly.jpg"/></p>
+    <hr/>
+    <h2>Third Version</h2>
+    <p>The third version added a heatmap to show the hourly values across a month.</p>
+    <p><img class='img-screenshot'  src="images/version-3-hourly.jpg"/></p>
+    <hr/>
+    <h2>Final Version</h2>
+    <p>The final version added the solar information for Brisbane. This was done by assuming a 13.2kWh system facing 40 deg north and a tilt of 20 degrees.
+          Profiles for January and June were calculated.</p>
+    <p><img class='img-screenshot'  src="images/version-4-hourly.jpg"/></p>
+    <p><img class='img-screenshot'  src="images/version-4-min-max-solar.jpg"/></p>
+    <hr/>
+    <div>Created using <a href="https://gemini.google.com/app">Google Gemini 2.5 Pro (experimental)</a>. Source: <a href="https://github.com/JoePlant/electricity-analysis">Github</a>.</div>
 </body>
